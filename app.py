@@ -52,7 +52,7 @@ def load_nifty50_data(df):
 
     st.title("Nifty50 Price Prediction")
     # Load the pre-trained model
-    model_path = "model"
+    model_path = "model.h5"
     model = load_model(model_path)
 
     # Selecting the feature and target columns
