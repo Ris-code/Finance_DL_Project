@@ -5,6 +5,7 @@ import plotly.graph_objs as go
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import load_model
 from tensorflow.keras.initializers import Orthogonal
+from tensorflow.keras.models import model_from_json
 
 # Function to load the data
 def load_data(file_path):
@@ -56,10 +57,18 @@ def load_nifty50_data(df):
     # model_path = "model.h5"
     # model = load_model(model_path)
 
-    custom_objects = {'Orthogonal': Orthogonal}
+    # custom_objects = {'Orthogonal': Orthogonal}
 
-    # Load the model with custom objects
-    model = load_model('model.h5', custom_objects=custom_objects)
+    # # Load the model with custom objects
+    # model = load_model('model.h5', custom_objects=custom_objects)
+
+    # Load the model from JSON and HDF5
+    with open("model.json", "r") as json_file:
+        loaded_model_json = json_file.read()
+    loaded_model = model_from_json(loaded_model_json, custom_objects={'Orthogonal': Orthogonal})
+    loaded_model.load_weights("model_weights.h5")
+
+    model = loaded_model
 
     # Selecting the feature and target columns
     data = df[['Close']].values
