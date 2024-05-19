@@ -4,6 +4,7 @@ import numpy as np
 import plotly.graph_objs as go
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import load_model
+from tensorflow.keras.initializers import Orthogonal
 
 # Function to load the data
 def load_data(file_path):
@@ -52,8 +53,13 @@ def load_nifty50_data(df):
 
     st.title("Nifty50 Price Prediction")
     # Load the pre-trained model
-    model_path = "model.h5"
-    model = load_model(model_path)
+    # model_path = "model.h5"
+    # model = load_model(model_path)
+
+    custom_objects = {'Orthogonal': Orthogonal}
+
+    # Load the model with custom objects
+    model = load_model('model.h5', custom_objects=custom_objects)
 
     # Selecting the feature and target columns
     data = df[['Close']].values
