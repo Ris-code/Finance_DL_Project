@@ -4,8 +4,26 @@ import numpy as np
 import plotly.graph_objs as go
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import load_model
-from tensorflow.keras.initializers import Orthogonal
-from tensorflow.keras.models import model_from_json
+from tensorflow.keras.models import Sequential, model_from_json
+from tensorflow.keras.initializers import Orthogonal, Zeros, GlorotUniform
+from tensorflow.keras.utils import register_keras_serializable
+
+@register_keras_serializable()
+class CustomSequential(Sequential):
+    pass
+# Load the model
+def load_model_with_custom_objects(model_json_path, model_weights_path):
+    with open(model_json_path, "r") as json_file:
+        loaded_model_json = json_file.read()
+    custom_objects = {
+        'CustomSequential': CustomSequential,
+        'Orthogonal': Orthogonal,
+        'Zeros': Zeros,
+        'GlorotUniform': GlorotUniform
+    }
+    loaded_model = model_from_json(loaded_model_json, custom_objects=custom_objects)
+    loaded_model.load_weights(model_weights_path)
+    return loaded_model
 
 # Function to load the data
 def load_data(file_path):
@@ -63,11 +81,13 @@ def load_nifty50_data(df):
     # model = load_model('model.h5', custom_objects=custom_objects)
 
     # Load the model from JSON and HDF5
-    with open("model.json", "r") as json_file:
-        loaded_model_json = json_file.read()
-    loaded_model = model_from_json(loaded_model_json, custom_objects={'Orthogonal': Orthogonal})
-    loaded_model.load_weights("model_weights.h5")
+    # with open("model.json", "r") as json_file:
+    #     loaded_model_json = json_file.read()
+    # loaded_model = model_from_json(loaded_model_json, custom_objects={'Orthogonal': Orthogonal})
+    # loaded_model.load_weights("model_weights.h5")
 
+    # Load the model
+    loaded_model = load_model_with_custom_objects("model.json", "model_weights.h5")
     model = loaded_model
 
     # Selecting the feature and target columns
