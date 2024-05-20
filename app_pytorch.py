@@ -3,40 +3,9 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objs as go
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import load_model
-from tensorflow.keras.models import Sequential, model_from_json
-from tensorflow.keras.initializers import Orthogonal, Zeros, GlorotUniform
-from tensorflow.keras.utils import register_keras_serializable
-
-@register_keras_serializable(package='Custom', name='CustomOrthogonal')
-class CustomOrthogonal(Orthogonal):
-    pass
-
-@register_keras_serializable(package='Custom', name='CustomZeros')
-class CustomZeros(Zeros):
-    pass
-
-@register_keras_serializable(package='Custom', name='CustomGlorotUniform')
-class CustomGlorotUniform(GlorotUniform):
-    pass
-
-@register_keras_serializable(package='Custom', name='CustomSequential')
-class CustomSequential(Sequential):
-    pass
-
-# Load the model
-def load_model_with_custom_objects(model_json_path, model_weights_path):
-    with open(model_json_path, "r") as json_file:
-        loaded_model_json = json_file.read()
-    custom_objects = {
-        'CustomSequential': CustomSequential,
-        'CustomOrthogonal': CustomOrthogonal,
-        'CustomZeros': CustomZeros,
-        'CustomGlorotUniform': CustomGlorotUniform
-    }
-    loaded_model = model_from_json(loaded_model_json, custom_objects=custom_objects)
-    loaded_model.load_weights(model_weights_path)
-    return loaded_model
+import torch
+import torch.nn as nn
+import torch.optim as optim
 
 # Function to load the data
 def load_data(file_path):
@@ -55,13 +24,38 @@ def create_dataset(dataset, time_step=1):
         Y.append(dataset[i + time_step, 0])
     return np.array(X), np.array(Y)
 
+# Define the LSTM model
+class LSTMModel(nn.Module):
+    def __init__(self):
+        super(LSTMModel, self).__init__()
+        self.lstm1 = nn.LSTM(input_size=1, hidden_size=50, num_layers=1, batch_first=True)
+        self.lstm2 = nn.LSTM(input_size=50, hidden_size=50, num_layers=1, batch_first=True)
+        self.fc1 = nn.Linear(50, 25)
+        self.fc2 = nn.Linear(25, 1)
+        
+    def forward(self, x):
+        out, _ = self.lstm1(x)
+        out, _ = self.lstm2(out)
+        out = out[:, -1, :]  # Get the last output of the sequence
+        out = torch.relu(self.fc1(out))
+        out = self.fc2(out)
+        return out
+
+# Function to load the PyTorch model
+def load_pytorch_model(model_path):
+    model = LSTMModel()
+    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+    model.eval()
+    return model
+
 # Function to predict next 5 days
 def predict_next_5_days(model, last_sequence, scaler):
     next_5_days_predictions = []
     for _ in range(5):
-        prediction = model.predict(last_sequence)
-        next_5_days_predictions.append(scaler.inverse_transform(prediction))
-        last_sequence = np.concatenate([last_sequence[:, 1:, :], prediction.reshape(1, 1, 1)], axis=1)
+        with torch.no_grad():
+            prediction = model(last_sequence)
+        next_5_days_predictions.append(scaler.inverse_transform(prediction.numpy()))
+        last_sequence = torch.cat([last_sequence[:, 1:, :], prediction.unsqueeze(2)], dim=1)
     return next_5_days_predictions
 
 # Function to display date and price in colored boxes
@@ -84,24 +78,9 @@ def display_predictions(dates, predictions):
 def load_nifty50_data(df):
 
     st.title("Nifty50 Price Prediction")
-    # Load the pre-trained model
-    # model_path = "model.h5"
-    # model = load_model(model_path)
 
-    # custom_objects = {'Orthogonal': Orthogonal}
-
-    # # Load the model with custom objects
-    # model = load_model('model.h5', custom_objects=custom_objects)
-
-    # Load the model from JSON and HDF5
-    # with open("model.json", "r") as json_file:
-    #     loaded_model_json = json_file.read()
-    # loaded_model = model_from_json(loaded_model_json, custom_objects={'Orthogonal': Orthogonal})
-    # loaded_model.load_weights("model_weights.h5")
-
-    # Load the model
-    loaded_model = load_model_with_custom_objects("model.json", "model_weights.h5")
-    model = loaded_model
+    # Load the pre-trained PyTorch model
+    model = load_pytorch_model("model.pth")
 
     # Selecting the feature and target columns
     data = df[['Close']].values
@@ -121,15 +100,19 @@ def load_nifty50_data(df):
     X_test, y_test = create_dataset(test_data, time_step)
 
     # Reshape input to be [samples, time steps, features] required for LSTM
-    X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
-    X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
+    X_train = torch.tensor(X_train, dtype=torch.float32).unsqueeze(2)
+    y_train = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1)
+    X_test = torch.tensor(X_test, dtype=torch.float32).unsqueeze(2)
+    y_test = torch.tensor(y_test, dtype=torch.float32).unsqueeze(1)
 
     # Predicting on the test data
-    predictions = model.predict(X_test)
+    model.eval()
+    with torch.no_grad():
+        predictions = model(X_test).numpy()
     predictions = scaler.inverse_transform(predictions)
 
     # Inverse transform the y_test to compare with the predictions
-    y_test = scaler.inverse_transform(y_test.reshape(-1, 1))
+    y_test_scaled = scaler.inverse_transform(y_test.numpy())
 
     # Get the last sequence for predicting next 5 days
     last_sequence = X_test[-1:, :, :]
@@ -138,10 +121,9 @@ def load_nifty50_data(df):
     next_5_days_predictions = predict_next_5_days(model, last_sequence, scaler)
 
     # Plotting using Plotly
-    # Determine the correct index range for actual and predicted values
-    test_dates = df.index[-len(y_test):]
+    test_dates = df.index[-len(y_test_scaled):]
 
-    actual_trace = go.Scatter(x=test_dates, y=y_test.flatten(), mode='lines', name='Actual Price', line=dict(color='blue'))
+    actual_trace = go.Scatter(x=test_dates, y=y_test_scaled.flatten(), mode='lines', name='Actual Price', line=dict(color='blue'))
     predicted_trace = go.Scatter(x=test_dates, y=predictions.flatten(), mode='lines', name='Predicted Price', line=dict(color='orange'))
 
     last_date = df.index[-1]
