@@ -6,6 +6,7 @@ from sklearn.preprocessing import MinMaxScaler
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from Model import *
 
 # Function to load the data
 def load_data(file_path):
@@ -23,30 +24,6 @@ def create_dataset(dataset, time_step=1):
         X.append(a)
         Y.append(dataset[i + time_step, 0])
     return np.array(X), np.array(Y)
-
-# Define the LSTM model
-class LSTMModel(nn.Module):
-    def __init__(self):
-        super(LSTMModel, self).__init__()
-        self.lstm1 = nn.LSTM(input_size=1, hidden_size=50, num_layers=1, batch_first=True)
-        self.lstm2 = nn.LSTM(input_size=50, hidden_size=50, num_layers=1, batch_first=True)
-        self.fc1 = nn.Linear(50, 25)
-        self.fc2 = nn.Linear(25, 1)
-        
-    def forward(self, x):
-        out, _ = self.lstm1(x)
-        out, _ = self.lstm2(out)
-        out = out[:, -1, :]  # Get the last output of the sequence
-        out = torch.relu(self.fc1(out))
-        out = self.fc2(out)
-        return out
-
-# Function to load the PyTorch model
-def load_pytorch_model(model_path):
-    model = LSTMModel()
-    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
-    model.eval()
-    return model
 
 # Function to predict next 5 days
 def predict_next_5_days(model, last_sequence, scaler):
@@ -74,13 +51,37 @@ def display_predictions(dates, predictions):
             unsafe_allow_html=True
         )
 
-# Functions for different indices
-def load_nifty50_data(df):
+def plot_candlestick(df):
+        # Create the candlestick chart
+    df = df.reset_index()
+    fig = go.Figure(data=[go.Candlestick(
+        x=df['Date'],
+        open=df['Open'],
+        high=df['High'],
+        low=df['Low'],
+        close=df['Close']
+    )])
 
-    st.title("Nifty50 Price Prediction")
+    # Update layout for better visualization
+    fig.update_layout(
+        title='Candlestick Chart',
+        xaxis_title='Date',
+        yaxis_title='Price',
+        xaxis_rangeslider_visible=False
+    )
+
+    return fig
+
+# Functions for different indices
+def load_index_data(df, index):
+
+    st.title(f"Nifty{index} Price Prediction")
+
+    st.markdown("### Candlestick Representation")
+    st.plotly_chart(plot_candlestick(df))
 
     # Load the pre-trained PyTorch model
-    model = load_pytorch_model("model.pth")
+    model = load_pytorch_model(f"model_{index}.pth")
 
     # Selecting the feature and target columns
     data = df[['Close']].values
@@ -163,34 +164,25 @@ def load_nifty50_data(df):
     st.markdown("### Next 5 Days Predictions")
     display_predictions([str(date).split()[0] for date in next_5_days_index], next_5_days_predictions)
 
-def load_nifty100_data(df):
-    st.write("Loading Nifty100 data...")
-
-def load_nifty_midcap_data(df):
-    st.write("Loading Nifty Midcap data...")
-
 # Main function to run the Streamlit app
 def main():
-    # Set title
-    # st.title("Stock Price Prediction App")
-
     # Sidebar for selecting the index
     index_options = {
         "Nifty50": "nifty50.csv",
         "Nifty100": "nifty100.csv",
-        "Nifty Midcap": "nifty_midcap.csv"
+        "Nifty Midcap50": "niftymidcap50.csv"
     }
-    selected_index = st.sidebar.selectbox("Choose an index:", list(index_options.keys()))
+    selected_index = st.sidebar.selectbox("Choose index:", list(index_options.keys()))
 
     file_path = index_options[selected_index]
     df = load_data(file_path)
     # Call the appropriate function based on the selected index
     if selected_index == "Nifty50":
-        load_nifty50_data(df)
+        load_index_data(df, "50")
     elif selected_index == "Nifty100":
-        load_nifty100_data(df)
-    elif selected_index == "Nifty Midcap":
-        load_nifty_midcap_data(df)
+        load_index_data(df, "100")
+    elif selected_index == "Nifty Midcap50":
+        load_index_data(df, "MidCap50")
 
 if __name__ == "__main__":
     main()
