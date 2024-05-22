@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from Nifty import *
+from Stock import *
 from streamlit_option_menu import option_menu
 
 # Function to load the data
@@ -56,7 +57,7 @@ def main():
         elif selected_index == "Nifty Midcap50":
             load_index_data(df, "MidCap50")
     elif main_choice == "Stocks":
-        st.sidebar.write("Stocks section not implemented yet.")
+        stock()
     elif main_choice == "Home":
         st.sidebar.write("Welcome to the Home section.")
 
