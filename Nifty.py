@@ -8,14 +8,6 @@ import torch.nn as nn
 import torch.optim as optim
 from Model import *
 
-# Function to load the data
-def load_data(file_path):
-    df = pd.read_csv(file_path)
-    df['Date'] = pd.to_datetime(df['Date'], format='%d-%b-%y')
-    df.set_index('Date', inplace=True)
-    df.sort_index(inplace=True)
-    return df
-
 # Function to create time series dataset
 def create_dataset(dataset, time_step=1):
     X, Y = [], []
@@ -81,7 +73,7 @@ def load_index_data(df, index):
     st.plotly_chart(plot_candlestick(df))
 
     # Load the pre-trained PyTorch model
-    model = load_pytorch_model(f"model_{index}.pth")
+    model = load_pytorch_model(f"Models\model_{index}.pth")
 
     # Selecting the feature and target columns
     data = df[['Close']].values
@@ -151,8 +143,9 @@ def load_index_data(df, index):
         title='Actual vs. Predicted Prices with Next 5 Days Predictions',
         xaxis=dict(title='Date'),
         yaxis=dict(title='Price'),
-        legend=dict(orientation='h'),
-        showlegend=True
+        legend=dict(orientation='h', yanchor='bottom', y=0.95, xanchor='right', x=1),
+        showlegend=True,
+        margin=dict(b=80)  # Increase the bottom margin to give more space for the x-axis label
     )
 
     fig = go.Figure(data=traces, layout=layout)
@@ -163,26 +156,3 @@ def load_index_data(df, index):
     # Display the predictions in separate section
     st.markdown("### Next 5 Days Predictions")
     display_predictions([str(date).split()[0] for date in next_5_days_index], next_5_days_predictions)
-
-# Main function to run the Streamlit app
-def main():
-    # Sidebar for selecting the index
-    index_options = {
-        "Nifty50": "nifty50.csv",
-        "Nifty100": "nifty100.csv",
-        "Nifty Midcap50": "niftymidcap50.csv"
-    }
-    selected_index = st.sidebar.selectbox("Choose index:", list(index_options.keys()))
-
-    file_path = index_options[selected_index]
-    df = load_data(file_path)
-    # Call the appropriate function based on the selected index
-    if selected_index == "Nifty50":
-        load_index_data(df, "50")
-    elif selected_index == "Nifty100":
-        load_index_data(df, "100")
-    elif selected_index == "Nifty Midcap50":
-        load_index_data(df, "MidCap50")
-
-if __name__ == "__main__":
-    main()
