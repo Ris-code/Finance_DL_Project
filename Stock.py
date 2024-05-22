@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_option_menu import option_menu
 import pandas as pd
 import numpy as np
 import plotly.graph_objs as go
@@ -7,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from Model import *
+import plotly.express as px
 
 def reformat_date(date):
     return date.replace('-', '/')
@@ -75,13 +77,107 @@ def plot_candlestick(df):
 
     return fig
 
+def plot_predicted_prices(test_dates, y_test_scaled, predictions, next_5_days_predictions, df):
+    last_date = df.index[-1]
+    next_5_days_index = pd.date_range(last_date + pd.Timedelta(days=1), periods=5)
+
+    colors = ['red', 'green', 'blue', 'orange', 'purple']
+    next_5_days_trace = []
+    predict_price = predictions[-1][0]
+    for i, price in enumerate(next_5_days_predictions, start=1):
+        next_day_trace = go.Scatter(
+            x=[last_date, next_5_days_index[i-1]], 
+            y=[predict_price, price[0][0]], 
+            mode='lines+markers', 
+            name=f'Next Day {i}', 
+            line=dict(color=colors[i-1]),
+            marker=dict(symbol='cross', size=5, color=colors[i-1])
+        )
+        next_5_days_trace.append(next_day_trace)
+        last_date = next_5_days_index[i-1]
+        predict_price = price[0][0]
+
+    actual_trace = go.Scatter(x=test_dates, y=y_test_scaled.flatten(), mode='lines', name='Actual Price', line=dict(color='blue'))
+    predicted_trace = go.Scatter(x=test_dates, y=predictions.flatten(), mode='lines', name='Predicted Price', line=dict(color='orange'))
+    
+    traces = [actual_trace, predicted_trace] + next_5_days_trace
+    layout = go.Layout(
+        title='Actual vs. Predicted Prices with Next 5 Days Predictions',
+        xaxis=dict(title='Date'),
+        yaxis=dict(title='Price'),
+        legend=dict(orientation='h', yanchor='bottom', y=0.95, xanchor='right', x=1),
+        showlegend=True,
+        margin=dict(b=80)
+    )
+    fig = go.Figure(data=traces, layout=layout)
+    return fig
+
+def normalize_the_price(df):
+  """normalize the prices based on the initial price
+  """
+  historic_data = df.iloc[:,1:].copy()
+  start = df.iloc[0,1:]
+  return historic_data/start
+
+def get_stock_daily_return(df):
+  h = df.copy()
+  h_shifted = h.shift().fillna(0)
+  # Calculate the percentage of change from the previous day
+  r = ((h - h_shifted)/h_shifted)*100
+  r.iloc[0] = 0
+  return r.astype(np.float64)
+
+def returns(df, amount_to_invest, stock):
+    print(amount_to_invest)
+    df = df.reset_index()
+
+    df = df[['Date','Close']]
+
+    df_norm = normalize_the_price(df)
+
+    # These are our random weigths
+    Weights = np.random.random(len(df.columns[1:]))
+    # These Weights should sum to one
+    Weights = Weights/sum(Weights)
+
+    X = df_norm.values
+    portfolio_daily_worth = X@Weights
+
+    df['portfolio daily worth in $'] = portfolio_daily_worth*amount_to_invest
+
+    stocks_daily_return = get_stock_daily_return(df_norm)
+
+    # Replace inf and -inf with NaN
+    stocks_daily_return.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+    # Replace NaN with the mean of the column
+    stocks_daily_return.fillna(stocks_daily_return.mean(), inplace=True)
+
+    date = df['Date']
+
+    df_plot = pd.concat([date, stocks_daily_return], axis=1)
+
+    fig = px.line(df_plot, x='Date', y='Close', title=f'{stock} Returns Over Time')
+    
+    return fig
+
+
 # Functions for different indices
 def load_index_data(df, index):
 
     st.title(f"{index} Stock Price Prediction")
 
-    st.markdown("### Candlestick Representation")
-    st.plotly_chart(plot_candlestick(df))
+    stock_choice = option_menu(
+        menu_title="",
+        options=["Candlestick", "Predicted Price", "Returns"],
+        icons=["graph-up-arrow", "cash-coin", "cash-stack"],
+        menu_icon="cast",
+        default_index=0,
+        orientation="horizontal",
+        styles = {
+            "nav-link-selected": {"background-color": "green"},
+        }
+    )
 
     # Load the pre-trained PyTorch model
     model = load_pytorch_model(f"Models\model_{index}.pth")
@@ -124,51 +220,31 @@ def load_index_data(df, index):
     # Predict next 5 days
     next_5_days_predictions = predict_next_5_days(model, last_sequence, scaler)
 
-    # Plotting using Plotly
-    test_dates = df.index[-len(y_test_scaled):]
+    # Plotting based on the clicked button
+    if stock_choice == "Candlestick":
+        st.markdown("### Candlestick Representation")
+        st.plotly_chart(plot_candlestick(df))
 
-    actual_trace = go.Scatter(x=test_dates, y=y_test_scaled.flatten(), mode='lines', name='Actual Price', line=dict(color='blue'))
-    predicted_trace = go.Scatter(x=test_dates, y=predictions.flatten(), mode='lines', name='Predicted Price', line=dict(color='orange'))
+    elif stock_choice == "Predicted Price":
+        st.markdown("### Predicted Prices and Next 5 Days Predictions")
+        test_dates = df.index[-len(y_test_scaled):]
+        fig = plot_predicted_prices(test_dates, y_test_scaled, predictions, next_5_days_predictions, df)
+        st.plotly_chart(fig)
+        st.markdown("### Next 5 Days Predictions")
+        next_5_days_index = pd.date_range(df.index[-1] + pd.Timedelta(days=1), periods=5)
+        display_predictions([str(date).split()[0] for date in next_5_days_index], next_5_days_predictions)
+    
+    elif stock_choice == "Returns":
+        if 'last_amount' not in st.session_state:
+            st.session_state.last_amount = 0
 
-    last_date = df.index[-1]
-    # last_date = pd.to_datetime(df.index[-1])
-
-    next_5_days_index = pd.date_range(last_date + pd.Timedelta(days=1), periods=5)
-
-    colors = ['red', 'green', 'blue', 'orange', 'purple']
-    next_5_days_trace = []
-    predict_price = predictions[-1][0]
-    for i, price in enumerate(next_5_days_predictions, start=1):
-        next_day_trace = go.Scatter(
-            x=[last_date, next_5_days_index[i-1]], 
-            y=[predict_price, price[0][0]], 
-            mode='lines+markers', 
-            name=f'Next Day {i}', 
-            line=dict(color=colors[i-1]),
-            marker=dict(symbol='cross', size=5, color=colors[i-1])
-        )
-        next_5_days_trace.append(next_day_trace)
-        last_date = next_5_days_index[i-1]
-        predict_price = price[0][0]
-
-    traces = [actual_trace, predicted_trace] + next_5_days_trace
-    layout = go.Layout(
-        title='Actual vs. Predicted Prices with Next 5 Days Predictions',
-        xaxis=dict(title='Date'),
-        yaxis=dict(title='Price'),
-        legend=dict(orientation='h', yanchor='bottom', y=0.95, xanchor='right', x=1),
-        showlegend=True,
-        margin=dict(b=80)  # Increase the bottom margin to give more space for the x-axis label
-    )
-
-    fig = go.Figure(data=traces, layout=layout)
-
-    # Display the plot
-    st.plotly_chart(fig)
-
-    # Display the predictions in separate section
-    st.markdown("### Next 5 Days Predictions")
-    display_predictions([str(date).split()[0] for date in next_5_days_index], next_5_days_predictions)
+        st.markdown(f"### {index} Stock Returns")
+        amount = st.number_input("Amount to Invest", value=100, step=1)
+        if st.session_state.last_amount != amount:
+            with st.spinner('Loading...'):
+                st.session_state.last_amount = amount
+                fig = returns(df, amount, index)
+                st.plotly_chart(fig)
 
 def stock():
     # Main page with dropdown menu

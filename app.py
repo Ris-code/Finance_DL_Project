@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 from Nifty import *
 from Stock import *
+from portfolio import *
 from streamlit_option_menu import option_menu
 
 # Function to load the data
@@ -51,15 +52,17 @@ def main():
         df = load_data(file_path)
         # Call the appropriate function based on the selected index
         if selected_index == "Nifty50":
-            load_index_data(df, "50")
+            load_index_data_nifty(df, "50")
         elif selected_index == "Nifty100":
-            load_index_data(df, "100")
+            load_index_data_nifty(df, "100")
         elif selected_index == "Nifty Midcap50":
-            load_index_data(df, "MidCap50")
+            load_index_data_nifty(df, "MidCap50")
     elif main_choice == "Stocks":
         stock()
     elif main_choice == "Home":
         st.sidebar.write("Welcome to the Home section.")
+    elif main_choice == "Portfolio Management":
+        portfolio()
 
 if __name__ == "__main__":
     main()
