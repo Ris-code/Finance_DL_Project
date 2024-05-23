@@ -71,10 +71,15 @@ def main():
                 default_index=0,
             )
 
+            # Define the relative path to the model
+        csv_path_50 = os.path.join(os.path.dirname(__file__), 'Nifty', 'nifty50.csv')
+        csv_path_100 = os.path.join(os.path.dirname(__file__), 'Nifty', 'nifty100.csv')
+        csv_path_midcap50 = os.path.join(os.path.dirname(__file__), 'Nifty', 'niftymidcap50.csv')
+
         index_options = {
-            "Nifty50": r"Nifty\nifty50.csv",
-            "Nifty100": r"Nifty\nifty100.csv",
-            "Nifty Midcap50": r"Nifty\niftymidcap50.csv"
+            "Nifty50": csv_path_50,
+            "Nifty100": csv_path_100,
+            "Nifty Midcap50": csv_path_midcap50
         }
 
         file_path = index_options[selected_index]
