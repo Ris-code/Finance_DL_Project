@@ -30,7 +30,6 @@ def compute_portfolio_return(options, stock_dict, invested_amount):
         stock_name = stock_dict[stock]
         # Load the CSV file
         df = pd.read_csv(f"Stock/{stock_name}.csv", parse_dates=['Date'], index_col='Date')
-        
         # Rename the 'Close' column to the stock name
         df = df[['Close']].rename(columns={'Close': stock_name})
         
