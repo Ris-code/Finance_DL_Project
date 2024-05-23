@@ -6,8 +6,6 @@ import plotly.express as px
 from streamlit_option_menu import option_menu
 import os
 
-pd.set_option('future.no_silent_downcasting', True)
-
 def normalize_the_price(df):
     """Normalize the prices based on the initial price."""
     historic_data = df.iloc[:, 1:].copy()
