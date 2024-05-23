@@ -3,6 +3,5 @@ pandas
 numpy
 plotly
 scikit-learn
-tensorflow
 torch
 streamlit-option-menu
