@@ -4,6 +4,7 @@ import numpy as np
 import plotly.graph_objs as go
 import plotly.express as px
 from streamlit_option_menu import option_menu
+import os
 
 def normalize_the_price(df):
     """Normalize the prices based on the initial price."""
@@ -28,8 +29,9 @@ def compute_portfolio_return(options, stock_dict, invested_amount):
     # Iterate over the CSV files and stock names
     for stock in options:
         stock_name = stock_dict[stock]
+        path = os.path.join(os.path.dirname(__file__), 'Stock', f'{stock_name}.csv')
         # Load the CSV file
-        df = pd.read_csv(f"Stock/{stock_name}.csv", parse_dates=['Date'], index_col='Date')
+        df = pd.read_csv(path, parse_dates=['Date'], index_col='Date')
         # Rename the 'Close' column to the stock name
         df = df[['Close']].rename(columns={'Close': stock_name})
         
