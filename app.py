@@ -11,6 +11,7 @@ from Stock import *
 from portfolio import *
 from streamlit_option_menu import option_menu
 import base64
+import os
 
 # Function to load the data
 def load_data(file_path):
