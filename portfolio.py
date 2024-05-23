@@ -125,49 +125,26 @@ def portfolio():
     
     button = st.button("Calculate Return")
 
-
-    # port_choice = option_menu(
-    #     menu_title="",
-    #     options=["Returns", "Beta of Stock", "Return Analysis"],
-    #     icons=["cash-stack", "currency-bitcoin", "bar-chart"],
-    #     menu_icon="cast",
-    #     default_index=0,
-    #     orientation="horizontal",
-    #     styles = {
-    #         "nav-link-selected": {"background-color": "green"},
-    #     }
-    # )
-    # global info .
-
-    info = {}
     if button:
         with st.spinner('Calculating...'):
             df, beta, expected_return, expected_portfolio_return = compute_portfolio_return(selected_options, stock_dict, amount)
             beta_fig, expected_return_fig = plot_interactive_bars(beta, expected_return)
-            
-            info["df"] = df
-            info["beta"] = beta
-            info["expected_return"] = expected_return
-            info["expected_portfolio_return"] = expected_portfolio_return
-            info["beta_fig"] = beta_fig
-            info["expected_return_fig"] = expected_return_fig
 
             # Create columns
             col1, col2 = st.columns(2)
 
             with col1:
                 st.markdown("### Expected Returns Table")
-                expected_return_df = pd.DataFrame.from_dict(info["expected_return"], orient='index', columns=['Expected Return (in %)'])
+                expected_return_df = pd.DataFrame.from_dict(expected_return, orient='index', columns=['Expected Return (in %)'])
                 st.table(expected_return_df)
 
             with col2:
-                expected_dict = {'Expected Portfolio Return': info["expected_portfolio_return"]}
+                expected_dict = {'Expected Portfolio Return':expected_portfolio_return}
                 st.markdown("### Expected Portfolio Return")
                 expected_portfolio_return_df = pd.DataFrame.from_dict(expected_dict, orient='index', columns=['Portfolio Return (in %)'])
                 st.table(expected_portfolio_return_df)
-        
-        
-            st.plotly_chart(info["beta_fig"])
+            
 
-            st.plotly_chart(info["expected_return_fig"])
+            st.plotly_chart(beta_fig)
+            st.plotly_chart(expected_return_fig)
 
