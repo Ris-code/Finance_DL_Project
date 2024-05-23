@@ -10,6 +10,7 @@ from Nifty import *
 from Stock import *
 from portfolio import *
 from streamlit_option_menu import option_menu
+import base64
 
 # Function to load the data
 def load_data(file_path):
@@ -19,8 +20,36 @@ def load_data(file_path):
     df.sort_index(inplace=True)
     return df
 
+def img_to_base64(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+    
 # Main function to run the Streamlit app
 def main():
+
+    # Streamlit Page Configuration
+    st.set_page_config(
+        page_title="Stock Analyser",
+        page_icon="img/img4.png",
+        initial_sidebar_state="expanded",
+    )
+
+     # Convert image to base64
+    img_path = "img/img4.png"
+    img_base64 = img_to_base64(img_path)
+
+    # Add logo and text to the sidebar
+    st.sidebar.markdown(
+        f"""
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="data:image/png;base64,{img_base64}" style="width: 60%; height: auto; margin-bottom: 10px;">
+            <h1 style="font-size: 40px; margin: 0;">Stock Analyser</h1>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.sidebar.markdown("---")
     # Sidebar with navigation menu
     with st.sidebar:
         main_choice = option_menu(

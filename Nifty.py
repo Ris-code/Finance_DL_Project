@@ -61,6 +61,10 @@ def plot_candlestick(df):
     )
     return fig
 
+def reformat_date(date):
+    date = str(date)
+    return date.split()[0]
+
 def plot_predicted_prices(test_dates, y_test_scaled, predictions, next_5_days_predictions, df):
     last_date = df.index[-1]
     next_5_days_index = pd.date_range(last_date + pd.Timedelta(days=1), periods=5)
@@ -96,6 +100,10 @@ def plot_predicted_prices(test_dates, y_test_scaled, predictions, next_5_days_pr
     fig = go.Figure(data=traces, layout=layout)
     return fig
 
+@st.cache_data
+def convert_df(df):
+    return df.to_csv().encode("utf-8")
+
 # Functions for different indices
 def load_index_data_nifty(df, index):
     st.title(f"Nifty {index} Price Prediction")
@@ -103,8 +111,8 @@ def load_index_data_nifty(df, index):
     # with st.expander("Menu", expanded=True):
     choice = option_menu(
         menu_title="",
-        options=["Candlestick", "Predicted Price"],
-        icons=["graph-up-arrow", "cash-coin"],
+        options=["Data", "Candlestick", "Predicted Price"],
+        icons=["table", "graph-up-arrow", "cash-coin"],
         menu_icon="cast",
         default_index=0,
         orientation="horizontal",
@@ -158,6 +166,7 @@ def load_index_data_nifty(df, index):
     if choice == "Candlestick":
         st.markdown("### Candlestick Representation")
         st.plotly_chart(plot_candlestick(df))
+
     elif choice == "Predicted Price":
         st.markdown("### Predicted Prices and Next 5 Days Predictions")
         test_dates = df.index[-len(y_test_scaled):]
@@ -166,3 +175,20 @@ def load_index_data_nifty(df, index):
         st.markdown("### Next 5 Days Predictions")
         next_5_days_index = pd.date_range(df.index[-1] + pd.Timedelta(days=1), periods=5)
         display_predictions([str(date).split()[0] for date in next_5_days_index], next_5_days_predictions)
+    
+    elif choice == "Data":
+        df_1 = df
+        df_1 = df_1.reset_index()
+        df_1['Date'] = df_1['Date'].apply(reformat_date)
+        df_1.set_index('Date', inplace=True)
+
+        data = convert_df(df_1)
+
+        st.download_button(
+            label="Download data as CSV",
+            data=data,
+            file_name="data.csv",
+            mime="text/csv",
+        )
+
+        st.dataframe(df_1, width=720)

@@ -161,6 +161,13 @@ def returns(df, amount_to_invest, stock):
     
     return fig
 
+@st.cache_data
+def convert_df(df):
+    return df.to_csv().encode("utf-8")
+
+def reformat_date_only(date):
+    date = str(date)
+    return date.split()[0]
 
 # Functions for different indices
 def load_index_data(df, index):
@@ -169,8 +176,8 @@ def load_index_data(df, index):
 
     stock_choice = option_menu(
         menu_title="",
-        options=["Candlestick", "Predicted Price", "Returns"],
-        icons=["graph-up-arrow", "cash-coin", "cash-stack"],
+        options=["Data", "Candlestick", "Predicted Price", "Returns"],
+        icons=["table", "graph-up-arrow", "cash-coin", "cash-stack"],
         menu_icon="cast",
         default_index=0,
         orientation="horizontal",
@@ -245,6 +252,23 @@ def load_index_data(df, index):
                 st.session_state.last_amount = amount
                 fig = returns(df, amount, index)
                 st.plotly_chart(fig)
+    
+    elif stock_choice == "Data":
+        df_1 = df
+        df_1 = df_1.reset_index()
+        df_1['Date'] = df_1['Date'].apply(reformat_date_only)
+        df_1.set_index('Date', inplace=True)
+        
+        data = convert_df(df_1)
+
+        st.download_button(
+            label="Download data as CSV",
+            data=data,
+            file_name="data.csv",
+            mime="text/csv",
+        )
+
+        st.dataframe(df_1, width=720)
 
 def stock():
     # Main page with dropdown menu
