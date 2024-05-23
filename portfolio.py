@@ -6,6 +6,8 @@ import plotly.express as px
 from streamlit_option_menu import option_menu
 import os
 
+pd.set_option('future.no_silent_downcasting', True)
+
 def normalize_the_price(df):
     """Normalize the prices based on the initial price."""
     historic_data = df.iloc[:, 1:].copy()
@@ -17,8 +19,12 @@ def get_stock_daily_return(df):
     h_shifted = h.shift().fillna(0)
     # Calculate the percentage of change from the previous day
     r = ((h - h_shifted) / h_shifted) * 100
+    print(r)
     r.iloc[0] = 0
     return r.astype(np.float64)
+
+def reformat_date(date):
+    return date.replace('-', '/')
 
 def compute_portfolio_return(options, stock_dict, invested_amount):
     stock_dict['SP500'] = "SP500"
@@ -29,9 +35,18 @@ def compute_portfolio_return(options, stock_dict, invested_amount):
     # Iterate over the CSV files and stock names
     for stock in options:
         stock_name = stock_dict[stock]
+        print(stock_name)
         path = os.path.join(os.path.dirname(__file__), 'Stock', f'{stock_name}.csv')
+
         # Load the CSV file
-        df = pd.read_csv(path, parse_dates=['Date'], index_col='Date')
+        df = pd.read_csv(path)
+
+        # Apply the function to the first column (dates)
+        df['Date'] = df['Date'].apply(reformat_date)
+        df['Date'] = pd.to_datetime(df['Date'])
+
+        df.set_index('Date', inplace=True)
+        print(df)
         # Rename the 'Close' column to the stock name
         df = df[['Close']].rename(columns={'Close': stock_name})
         
@@ -40,12 +55,15 @@ def compute_portfolio_return(options, stock_dict, invested_amount):
             merged_df = df
         else:
             merged_df = merged_df.join(df, how='outer')
+            print(merged_df)
 
+    # print(merged_df)
     # Reset the index to make 'Date' a column
     merged_df.reset_index(inplace=True)
     merged_df['SP500'] = merged_df['SP500'].str.replace(',', '').astype(np.float64)
     
     df = merged_df
+    # print(df)
 
     df_norm = normalize_the_price(df)
 
@@ -53,16 +71,16 @@ def compute_portfolio_return(options, stock_dict, invested_amount):
     Weights = np.random.random(len(df.columns[1:]))
     # These Weights should sum to one
     Weights = Weights / sum(Weights)
-
     # Historic data -- normalized based on initial price
     X = df_norm.values
 
     portfolio_daily_worth = X @ Weights
+    # print(invested_amount)
 
     df['portfolio daily worth in $'] = portfolio_daily_worth * invested_amount
 
     stocks_daily_return = get_stock_daily_return(df_norm)
-
+    # print(stocks_daily_return)
     # Replace inf and -inf with NaN
     stocks_daily_return.replace([np.inf, -np.inf], np.nan, inplace=True)
 
@@ -78,7 +96,7 @@ def compute_portfolio_return(options, stock_dict, invested_amount):
             beta[stock_dict[stock]] = slope
 
     rm = stocks_daily_return['SP500'].mean() * 252
-
+    print(rm)
     # Current yield on a U.S. 10-year treasury is 2.5%
     rf = 0.025
 
@@ -93,7 +111,9 @@ def compute_portfolio_return(options, stock_dict, invested_amount):
 
     expected_return_of_the_portfolio = np.dot(np.array(list(expected_return.values())), weights)
 
-    return df, beta, expected_return, expected_return_of_the_portfolio
+    fig_daily_worth = px.line(x='Date', y='portfolio daily worth in $', data_frame=df, title = 'portfolio daily worth in $')
+
+    return df, beta, expected_return, expected_return_of_the_portfolio, fig_daily_worth
 
 def plot_interactive_bars(beta, expected_return):
     beta_fig = go.Figure([go.Bar(x=list(beta.keys()), y=list(beta.values()), name='Beta')])
@@ -128,9 +148,10 @@ def portfolio():
 
     if button:
         with st.spinner('Calculating...'):
-            df, beta, expected_return, expected_portfolio_return = compute_portfolio_return(selected_options, stock_dict, amount)
+            df, beta, expected_return, expected_portfolio_return, fig = compute_portfolio_return(selected_options, stock_dict, amount)
             beta_fig, expected_return_fig = plot_interactive_bars(beta, expected_return)
-
+            print(expected_return)
+            print(expected_portfolio_return)
             # Create columns
             col1, col2 = st.columns(2)
 
@@ -148,4 +169,6 @@ def portfolio():
 
             st.plotly_chart(beta_fig)
             st.plotly_chart(expected_return_fig)
+            st.markdown("### Portfolio Daily Worth on Invested Amount")
+            st.plotly_chart(fig)
 
