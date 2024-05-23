@@ -122,7 +122,13 @@ def load_index_data_nifty(df, index):
     )
 
     # Load the pre-trained PyTorch model
-    model = load_pytorch_model(f"Models/model_{index}.pth")
+    # model = load_pytorch_model(f"Models/model_{index}.pth")
+    # Define the relative path to the model
+    model_path = os.path.join(os.path.dirname(__file__), 'Models', f'model_{index}.pth')
+
+    # Load the pre-trained PyTorch model
+    # model = load_pytorch_model(f"Models\model_{index}.pth")
+    model = load_pytorch_model(model_path)
 
     # Selecting the feature and target columns
     data = df[['Close']].values
