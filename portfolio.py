@@ -150,23 +150,31 @@ def portfolio():
             beta_fig, expected_return_fig = plot_interactive_bars(beta, expected_return)
             print(expected_return)
             print(expected_portfolio_return)
-            # Create columns
-            col1, col2 = st.columns(2)
 
-            with col1:
-                st.markdown("### Expected Returns Table")
-                expected_return_df = pd.DataFrame.from_dict(expected_return, orient='index', columns=['Expected Return (in %)'])
-                st.table(expected_return_df)
+            tab1, tab2, tab3, tab4 = st.tabs(["Expected Return", "Beta of Stock", "Asset Returns", "Portfolio Daily Worth"])
 
-            with col2:
-                expected_dict = {'Expected Portfolio Return':expected_portfolio_return}
-                st.markdown("### Expected Portfolio Return")
-                expected_portfolio_return_df = pd.DataFrame.from_dict(expected_dict, orient='index', columns=['Portfolio Return (in %)'])
-                st.table(expected_portfolio_return_df)
+            with tab1:
+                # Create columns
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("### Expected Returns Table")
+                    expected_return_df = pd.DataFrame.from_dict(expected_return, orient='index', columns=['Expected Return (in %)'])
+                    st.table(expected_return_df)
+
+                with col2:
+                    expected_dict = {'Expected Portfolio Return':expected_portfolio_return}
+                    st.markdown("### Expected Portfolio Return")
+                    expected_portfolio_return_df = pd.DataFrame.from_dict(expected_dict, orient='index', columns=['Portfolio Return (in %)'])
+                    st.table(expected_portfolio_return_df)
+                
+            with tab2:
+                st.plotly_chart(beta_fig)
             
-
-            st.plotly_chart(beta_fig)
-            st.plotly_chart(expected_return_fig)
-            st.markdown("### Portfolio Daily Worth on Invested Amount")
-            st.plotly_chart(fig)
+            with tab3:
+                st.plotly_chart(expected_return_fig)
+            
+            with tab4:
+                st.markdown("### Portfolio Daily Worth on Invested Amount")
+                st.plotly_chart(fig)
 

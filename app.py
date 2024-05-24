@@ -9,6 +9,7 @@ import torch.optim as optim
 from Nifty import *
 from Stock import *
 from portfolio import *
+from home import *
 from streamlit_option_menu import option_menu
 import base64
 import os
@@ -27,14 +28,13 @@ def img_to_base64(image_path):
     
 # Main function to run the Streamlit app
 def main():
-
     # Streamlit Page Configuration
     st.set_page_config(
         page_title="Stock Analyser",
         page_icon="img/img4.png",
         initial_sidebar_state="expanded",
+        layout="wide",
     )
-
      # Convert image to base64
     img_path = "img/img4.png"
     img_base64 = img_to_base64(img_path)
@@ -95,7 +95,7 @@ def main():
     elif main_choice == "Stocks":
         stock()
     elif main_choice == "Home":
-        st.sidebar.write("Welcome to the Home section.")
+        home()
     elif main_choice == "Portfolio Management":
         portfolio()
 
