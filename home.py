@@ -24,7 +24,8 @@ def home():
     tab1, tab2 = st.tabs(["Learn Stock Market", "Market News"])
     with tab1:
         st.markdown("### Learn About Stock Market")
-        st.video("https://youtu.be/Xn7KWR9EOGQ")
+        play = st.video("https://youtu.be/Xn7KWR9EOGQ")
+        print(play)
     
     with tab2:
         # Replace 'YOUR_API_KEY' with your actual API key from NewsData.io
@@ -69,14 +70,16 @@ def home():
                             )
                         else:
                             st.write(f"**Source:** {source_id}")
+                    
                     # Display image or video on the right column
                     with col2:
-                        if 'image_url' in article:
-                            st.image(article['image_url'])
-                        elif 'video_url' in article:
-                            st.video(article['video_url'])
+                        image_url = article.get('image_url', None)
+                        video_url = article.get('video_url', None)
+                        if image_url:
+                            st.image(image_url)
+                        elif video_url:
+                            st.video(video_url)
                     
                     st.write("---")
             else:
                 st.error("Failed to fetch news data.")
-
