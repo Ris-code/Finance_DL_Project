@@ -52,7 +52,9 @@ def plot_candlestick(df):
         open=df['Open'],
         high=df['High'],
         low=df['Low'],
-        close=df['Close']
+        close=df['Close'],
+        increasing=dict(line=dict(color='#2ECC71'), fillcolor='#2ECC71'), 
+        decreasing=dict(line=dict(color='#E74C3C'), fillcolor='#E74C3C')
     )])
     fig.update_layout(
         title='Candlestick Chart',
@@ -109,7 +111,6 @@ def convert_df(df):
 def load_index_data_nifty(df, index):
     st.title(f"Nifty {index} Price Prediction")
 
-    # with st.expander("Menu", expanded=True):
     choice = option_menu(
         menu_title="",
         options=["Data", "Candlestick", "Predicted Price"],
@@ -123,12 +124,7 @@ def load_index_data_nifty(df, index):
     )
 
     # Load the pre-trained PyTorch model
-    # model = load_pytorch_model(f"Models/model_{index}.pth")
-    # Define the relative path to the model
     model_path = os.path.join(os.path.dirname(__file__), 'Models', f'model_{index}.pth')
-
-    # Load the pre-trained PyTorch model
-    # model = load_pytorch_model(f"Models\model_{index}.pth")
     model = load_pytorch_model(model_path)
 
     # Selecting the feature and target columns
@@ -169,23 +165,40 @@ def load_index_data_nifty(df, index):
     # Predict next 5 days
     next_5_days_predictions = predict_next_5_days(model, last_sequence, scaler)
 
+    # Date Range
+    min_date = df.index.min().date()
+    max_date = df.index.max().date()
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        start_date = st.date_input("Start date", min_date, min_value=min_date, max_value=max_date)
+    with col2:
+        end_date = st.date_input("End date", max_date, min_value=min_date, max_value=max_date)
+
+    if start_date > end_date:
+        st.sidebar.error("Error: End date must fall after start date.")
+
+    filtered_df = df.loc[start_date:end_date]
     # Plotting based on the clicked button
     if choice == "Candlestick":
+        st.markdown("---")
         st.markdown("### Candlestick Representation")
-        st.plotly_chart(plot_candlestick(df))
+        st.plotly_chart(plot_candlestick(filtered_df))
 
     elif choice == "Predicted Price":
+        st.markdown("---")
         st.markdown("### Predicted Prices and Next 5 Days Predictions")
-        test_dates = df.index[-len(y_test_scaled):]
-        fig = plot_predicted_prices(test_dates, y_test_scaled, predictions, next_5_days_predictions, df)
+        test_dates = filtered_df.index[-len(y_test_scaled):]
+        fig = plot_predicted_prices(test_dates, y_test_scaled, predictions, next_5_days_predictions, filtered_df)
         st.plotly_chart(fig)
         st.markdown("### Next 5 Days Predictions")
-        next_5_days_index = pd.date_range(df.index[-1] + pd.Timedelta(days=1), periods=5)
+        next_5_days_index = pd.date_range(filtered_df.index[-1] + pd.Timedelta(days=1), periods=5)
         display_predictions([str(date).split()[0] for date in next_5_days_index], next_5_days_predictions)
     
-    elif choice == "Data":
-        df_1 = df
-        df_1 = df_1.reset_index()
+    elif choice == "Data":   
+        st.markdown("---") 
+        df_1 = filtered_df.reset_index()
         df_1['Date'] = df_1['Date'].apply(reformat_date)
         df_1.set_index('Date', inplace=True)
 
@@ -199,3 +212,7 @@ def load_index_data_nifty(df, index):
         )
 
         st.dataframe(df_1, width=720)
+
+# Example of calling the function
+# df = load_your_dataframe_here()
+# load_index_data_nifty(df, 'IndexName')

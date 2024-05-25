@@ -16,13 +16,11 @@ def reformat_date(date):
 
 def load_data(df):
     df['Date'] = df['Date'].apply(reformat_date)
-    # Parse the Date column to datetime
     df['Date'] = pd.to_datetime(df['Date'])
     df.set_index('Date', inplace=True)
     df.sort_index(inplace=True)
     return df
 
-# Function to create time series dataset
 def create_dataset(dataset, time_step=1):
     X, Y = [], []
     for i in range(len(dataset) - time_step - 1):
@@ -31,7 +29,6 @@ def create_dataset(dataset, time_step=1):
         Y.append(dataset[i + time_step, 0])
     return np.array(X), np.array(Y)
 
-# Function to predict next 5 days
 def predict_next_5_days(model, last_sequence, scaler):
     next_5_days_predictions = []
     for _ in range(5):
@@ -41,7 +38,6 @@ def predict_next_5_days(model, last_sequence, scaler):
         last_sequence = torch.cat([last_sequence[:, 1:, :], prediction.unsqueeze(2)], dim=1)
     return next_5_days_predictions
 
-# Function to display date and price in colored boxes
 def display_predictions(dates, predictions):
     box_color = '#0E1117'
     border_color = '#4CAF50'
@@ -58,24 +54,22 @@ def display_predictions(dates, predictions):
         )
 
 def plot_candlestick(df):
-        # Create the candlestick chart
     df = df.reset_index()
     fig = go.Figure(data=[go.Candlestick(
         x=df['Date'],
         open=df['Open'],
         high=df['High'],
         low=df['Low'],
-        close=df['Close']
+        close=df['Close'],
+        increasing=dict(line=dict(color='#2ECC71'), fillcolor='#2ECC71'), 
+        decreasing=dict(line=dict(color='#E74C3C'), fillcolor='#E74C3C')
     )])
-
-    # Update layout for better visualization
     fig.update_layout(
         title='Candlestick Chart',
         xaxis_title='Date',
         yaxis_title='Price',
         xaxis_rangeslider_visible=False
     )
-
     return fig
 
 def plot_predicted_prices(test_dates, y_test_scaled, predictions, next_5_days_predictions, df):
@@ -114,52 +108,32 @@ def plot_predicted_prices(test_dates, y_test_scaled, predictions, next_5_days_pr
     return fig
 
 def normalize_the_price(df):
-  """normalize the prices based on the initial price
-  """
-  historic_data = df.iloc[:,1:].copy()
-  start = df.iloc[0,1:]
-  return historic_data/start
+    historic_data = df.iloc[:,1:].copy()
+    start = df.iloc[0,1:]
+    return historic_data/start
 
 def get_stock_daily_return(df):
-  h = df.copy()
-  h_shifted = h.shift().fillna(0)
-  # Calculate the percentage of change from the previous day
-  r = ((h - h_shifted)/h_shifted)*100
-  r.iloc[0] = 0
-  return r.astype(np.float64)
+    h = df.copy()
+    h_shifted = h.shift().fillna(0)
+    r = ((h - h_shifted)/h_shifted)*100
+    r.iloc[0] = 0
+    return r.astype(np.float64)
 
 def returns(df, amount_to_invest, stock):
-    print(amount_to_invest)
     df = df.reset_index()
-
     df = df[['Date','Close']]
-
     df_norm = normalize_the_price(df)
-
-    # These are our random weigths
     Weights = np.random.random(len(df.columns[1:]))
-    # These Weights should sum to one
     Weights = Weights/sum(Weights)
-
     X = df_norm.values
     portfolio_daily_worth = X@Weights
-
     df['portfolio daily worth in $'] = portfolio_daily_worth*amount_to_invest
-
     stocks_daily_return = get_stock_daily_return(df_norm)
-
-    # Replace inf and -inf with NaN
     stocks_daily_return.replace([np.inf, -np.inf], np.nan, inplace=True)
-
-    # Replace NaN with the mean of the column
     stocks_daily_return.fillna(stocks_daily_return.mean(), inplace=True)
-
     date = df['Date']
-
     df_plot = pd.concat([date, stocks_daily_return], axis=1)
-
     fig = px.line(df_plot, x='Date', y='Close', title=f'{stock} Returns Over Time')
-    
     return fig
 
 @st.cache_data
@@ -170,9 +144,7 @@ def reformat_date_only(date):
     date = str(date)
     return date.split()[0]
 
-# Functions for different indices
 def load_index_data(df, index):
-
     st.title(f"{index} Stock Price Prediction")
 
     stock_choice = option_menu(
@@ -187,98 +159,92 @@ def load_index_data(df, index):
         }
     )
 
-    # Define the relative path to the model
     model_path = os.path.join(os.path.dirname(__file__), 'Models', f'model_{index}.pth')
-
-    # Load the pre-trained PyTorch model
-    # model = load_pytorch_model(f"Models\model_{index}.pth")
     model = load_pytorch_model(model_path)
-
-    # Selecting the feature and target columns
     data = df[['Close']].values
-
-    # Normalize the data
     scaler = MinMaxScaler(feature_range=(0, 1))
     scaled_data = scaler.fit_transform(data)
-
-    # Split data into train and test sets
     train_size = int(len(scaled_data) * 0.8)
     train_data = scaled_data[:train_size]
     test_data = scaled_data[train_size:]
-
-    # Create time series data
     time_step = 60
     X_train, y_train = create_dataset(train_data, time_step)
     X_test, y_test = create_dataset(test_data, time_step)
-
-    # Reshape input to be [samples, time steps, features] required for LSTM
     X_train = torch.tensor(X_train, dtype=torch.float32).unsqueeze(2)
     y_train = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1)
     X_test = torch.tensor(X_test, dtype=torch.float32).unsqueeze(2)
     y_test = torch.tensor(y_test, dtype=torch.float32).unsqueeze(1)
 
-    # Predicting on the test data
     model.eval()
     with torch.no_grad():
         predictions = model(X_test).numpy()
     predictions = scaler.inverse_transform(predictions)
-
-    # Inverse transform the y_test to compare with the predictions
     y_test_scaled = scaler.inverse_transform(y_test.numpy())
-
-    # Get the last sequence for predicting next 5 days
     last_sequence = X_test[-1:, :, :]
-
-    # Predict next 5 days
     next_5_days_predictions = predict_next_5_days(model, last_sequence, scaler)
 
-    # Plotting based on the clicked button
-    if stock_choice == "Candlestick":
-        st.markdown("### Candlestick Representation")
-        st.plotly_chart(plot_candlestick(df))
+    # Date Range
+    min_date = df.index.min().date()
+    max_date = df.index.max().date()
 
-    elif stock_choice == "Predicted Price":
-        st.markdown("### Predicted Prices and Next 5 Days Predictions")
-        test_dates = df.index[-len(y_test_scaled):]
-        fig = plot_predicted_prices(test_dates, y_test_scaled, predictions, next_5_days_predictions, df)
-        st.plotly_chart(fig)
-        st.markdown("### Next 5 Days Predictions")
-        next_5_days_index = pd.date_range(df.index[-1] + pd.Timedelta(days=1), periods=5)
-        display_predictions([str(date).split()[0] for date in next_5_days_index], next_5_days_predictions)
-    
-    elif stock_choice == "Returns":
-        if 'last_amount' not in st.session_state:
-            st.session_state.last_amount = 0
+    col1, col2 = st.columns(2)
 
-        st.markdown(f"### {index} Stock Returns")
-        amount = st.number_input("Amount to Invest", value=100, step=1)
-        if st.session_state.last_amount != amount:
-            with st.spinner('Loading...'):
-                st.session_state.last_amount = amount
-                fig = returns(df, amount, index)
-                st.plotly_chart(fig)
-    
-    elif stock_choice == "Data":
-        df_1 = df
-        df_1 = df_1.reset_index()
-        df_1['Date'] = df_1['Date'].apply(reformat_date_only)
-        df_1.set_index('Date', inplace=True)
-        
-        data = convert_df(df_1)
+    with col1:
+        start_date = st.date_input("Start date", min_date, min_value=min_date, max_value=max_date)
+    with col2:    
+        end_date = st.date_input("End date", max_date, min_value=min_date, max_value=max_date)
 
-        st.download_button(
-            label="Download data as CSV",
-            data=data,
-            file_name="data.csv",
-            mime="text/csv",
-        )
+    if start_date > end_date:
+        st.sidebar.error("Error: End date must fall after start date.")
+    else:
+        filtered_df = df.loc[start_date:end_date]
 
-        st.dataframe(df_1, width=720)
+        if stock_choice == "Candlestick":
+            st.markdown("---")
+            st.markdown("### Candlestick Representation")
+            st.plotly_chart(plot_candlestick(filtered_df))
+
+        elif stock_choice == "Predicted Price":
+            st.markdown("---")
+            st.markdown("### Predicted Prices and Next 5 Days Predictions")
+            test_dates = filtered_df.index[-len(y_test_scaled):]
+            fig = plot_predicted_prices(test_dates, y_test_scaled, predictions, next_5_days_predictions, filtered_df)
+            st.plotly_chart(fig)
+            st.markdown("### Next 5 Days Predictions")
+            next_5_days_index = pd.date_range(filtered_df.index[-1] + pd.Timedelta(days=1), periods=5)
+            display_predictions([str(date).split()[0] for date in next_5_days_index], next_5_days_predictions)
+
+        elif stock_choice == "Returns":
+            st.markdown("---")
+            if 'last_amount' not in st.session_state:
+                st.session_state.last_amount = 0
+
+            st.markdown(f"### {index} Stock Returns")
+            amount = st.number_input("Amount to Invest", value=100, step=1)
+            if st.session_state.last_amount != amount:
+                with st.spinner('Loading...'):
+                    st.session_state.last_amount = amount
+                    fig = returns(filtered_df, amount, index)
+                    st.plotly_chart(fig)
+
+        elif stock_choice == "Data":
+            st.markdown("---")
+            df_1 = filtered_df
+            df_1 = df_1.reset_index()
+            df_1['Date'] = df_1['Date'].apply(reformat_date_only)
+            df_1.set_index('Date', inplace=True)
+            data = convert_df(df_1)
+            st.download_button(
+                label="Download data as CSV",
+                data=data,
+                file_name="data.csv",
+                mime="text/csv",
+            )
+            st.dataframe(df_1, width=720)
 
 def stock():
-    # Main page with dropdown menu
     st.title("Stock Price Prediction")
-    
+
     stock_dict = {
         'Apple Stock (AAPL)':'AAPL',
         'Boeing (BA)' : 'BA',
@@ -291,15 +257,14 @@ def stock():
         'The S&P 500 tracks the performance of 500 major U.S. companies': 'SP500'
     }
     stock_list = list(stock_dict.keys())
-    # Dropdown menu for stock indices
+
     index = st.selectbox(
         "Select the Stock Index",
         stock_list
     )
 
-    # Load data based on selected index
     if index:
-        # Assuming data is loaded from CSV files
         df = pd.read_csv(f"Stock/{stock_dict[index]}.csv")
         df = load_data(df)
         load_index_data(df, stock_dict[index])
+
